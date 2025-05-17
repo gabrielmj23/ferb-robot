@@ -1,12 +1,28 @@
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
 from models import MoveRequest, ModeRequest
+from ferb import Ferb
+
+robot = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Initialize the robot on startup.
+    """
+    global robot
+    robot = Ferb()
+    yield
+    robot.cleanup()
+
 
 app = FastAPI(
-    title="Ferb API", description="API para controlar al robot FERB", version="1.0"
+    title="Ferb API",
+    description="API para controlar al robot FERB",
+    version="1.0",
+    lifespan=lifespan,
 )
-
-current_mode = "manual"  # Modo inicial del robot
-current_direction = "stop"  # Dirección inicial del robot
 
 
 @app.post("/move/")
@@ -14,12 +30,14 @@ async def move(move_request: MoveRequest):
     """
     Move the robot in the specified direction.
     """
-    # Here you would add the logic to control the robot
-    if current_mode == "manual":
-        # Logic to move the robot
-        global current_direction
-        current_direction = move_request.direction
-        return {"message": f"Moving {move_request.direction}"}
+    if robot is None:
+        return {"message": "El robot no se ha inicializado"}
+
+    if robot.current_mode == "manual":
+        robot.move(move_request.direction, move_request.speed)
+        return {
+            "message": f"Se movió al robot - {move_request.direction} a velocidad {move_request.speed}"
+        }
 
     else:
         return {"message": "El modo actual no permite el movimiento manual"}
@@ -30,6 +48,7 @@ async def mode(mode_request: ModeRequest):
     """
     Change the robot's mode.
     """
-    global current_mode
-    current_mode = mode_request.mode
+    if robot is None:
+        return {"message": "El robot no se ha inicializado"}
+    robot.current_mode = mode_request.mode
     return {"message": f"Changing mode to {mode_request.mode}"}
