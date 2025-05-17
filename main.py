@@ -5,7 +5,8 @@ app = FastAPI(
     title="Ferb API", description="API para controlar al robot FERB", version="1.0"
 )
 
-current_mode = "manual"  # Estado inicial del robot
+current_mode = "manual"  # Modo inicial del robot
+current_direction = "stop"  # Dirección inicial del robot
 
 
 @app.post("/move/")
@@ -16,6 +17,8 @@ async def move(move_request: MoveRequest):
     # Here you would add the logic to control the robot
     if current_mode == "manual":
         # Logic to move the robot
+        global current_direction
+        current_direction = move_request.direction
         return {"message": f"Moving {move_request.direction}"}
 
     else:
