@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 from contextlib import asynccontextmanager
 from models import MoveRequest, ModeRequest
 from ferb import Ferb
@@ -52,3 +53,15 @@ async def mode(mode_request: ModeRequest):
         return {"message": "El robot no se ha inicializado"}
     robot.current_mode = mode_request.mode
     return {"message": f"Changing mode to {mode_request.mode}"}
+
+
+@app.get("/camera/stream")
+async def camera_stream():
+    """
+    Stream de la cámara del robot en tiempo real (MJPEG).
+    """
+    if robot is None:
+        return {"message": "El robot no se ha inicializado"}
+    return StreamingResponse(
+        robot.camera_stream(), media_type="multipart/x-mixed-replace; boundary=frame"
+    )
