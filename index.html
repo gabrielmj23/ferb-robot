@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Control FERB</title>
+</head>
+<body>
+  <h1>Control del Robot FERB</h1>
+  <img id="camera" src="/camera/stream" alt="Cámara del robot" width="480"><br><br>
+  <button onclick="move('forward')">Adelante</button>
+  <button onclick="move('left')">Izquierda</button>
+  <button onclick="move('right')">Derecha</button>
+  <button onclick="move('backward')">Atrás</button>
+  <button onclick="move('stop')">Parar</button>
+  <br><br>
+  <button onclick="setMode('manual')">Modo Manual</button>
+  <button onclick="setMode('auto')">Modo Automático</button>
+  <script>
+    function move(direction) {
+      fetch('/move/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({direction: direction, speed: 1})
+      }).then(r => r.json()).then(alert);
+    }
+    function setMode(mode) {
+      fetch('/mode/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({mode: mode})
+      }).then(r => r.json()).then(alert);
+    }
+  </script>
+</body>
+</html>

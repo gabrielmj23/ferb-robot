@@ -3,9 +3,11 @@ from fastapi.responses import StreamingResponse
 from contextlib import asynccontextmanager
 from models import MoveRequest, ModeRequest
 from ferb import Ferb
+from fastapi.staticfiles import StaticFiles
 
 robot = None
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
