@@ -3,8 +3,8 @@ import cv2
 import time
 
 # Importar nuestros módulos personalizados
-import ball
-import motor
+import vision_modulo
+import motor_modulo
 
 # --- Configuración de Control del Robot ---
 # Estas dimensiones deben coincidir con las usadas en vision_module después del reescalado
