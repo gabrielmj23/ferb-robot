@@ -7,7 +7,6 @@ from fastapi.staticfiles import StaticFiles
 
 robot = None
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -27,6 +26,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.post("/move/")
 async def move(move_request: MoveRequest):
