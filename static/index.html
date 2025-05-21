@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Control FERB</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex flex-col items-center  h-screen">
+  <h1 class="text-4xl font-bold mt-8 mb-6">Control del Robot FERB</h1>
+
+  <div class="space-x-4 mb-6">
+    <button class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-700" onclick="setMode('Manual')">Modo Manual</button>
+  <button class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-700" onclick="setMode('Perrito')">Modo Perrito</button>
+  </div>
+<div class="flex space-x-20 items-center">
+  <img id="camera" src="/camera/stream" alt="Cámara del robot" width="480"><br><br>
+<div class="flex flex-col items-center space-y-4 mb-4">
+  <button onclick="move('forward')" class="px-10 py-4 bg-blue-500 text-white rounded hover:bg-blue-700">▲</button>
+  <div class="flex space-x-6">
+    <button 
+      onmousedown="startMove('left')" 
+      onmouseup="stopMove()" 
+      onmouseleave="stopMove()" 
+      ontouchstart="startMove('left')" 
+      ontouchend="stopMove()" 
+      class="px-10 py-4 bg-blue-500 text-white rounded hover:bg-blue-700">◀</button>
+    <button 
+      onmousedown="startMove('right')" 
+      onmouseup="stopMove()" 
+      onmouseleave="stopMove()" 
+      ontouchstart="startMove('right')" 
+      ontouchend="stopMove()" 
+      class="px-10 py-4 bg-blue-500 text-white rounded hover:bg-blue-700">▶</button>
+  </div>
+  <button 
+    onmousedown="startMove('backward')" 
+    onmouseup="stopMove()" 
+    onmouseleave="stopMove()" 
+    ontouchstart="startMove('backward')" 
+    ontouchend="stopMove()" 
+    class="px-10 py-4 bg-blue-500 text-white rounded hover:bg-blue-700">▼</button>
+</div>
+</div>
+
+
+  <script>
+    let moveInterval = null;
+
+    function startMove(direction) {
+      move(direction); // send immediately
+      if (moveInterval) clearInterval(moveInterval);
+      moveInterval = setInterval(() => move(direction), 150);
+    }
+
+    function stopMove() {
+      if (moveInterval) {
+        clearInterval(moveInterval);
+        moveInterval = null;
+      }
+      move('stop');
+    }
+
+    function move(direction) {
+      fetch('/move/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({direction: direction, speed: 1})
+      });
+    }
+    function setMode(mode) {
+      fetch('/mode/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({mode: mode})
+      }).then(r => r.json()).then(alert);
+    }
+  </script>
+</body>
+</html>
