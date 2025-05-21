@@ -9,35 +9,27 @@
   <h1 class="text-4xl font-bold mt-8 mb-6">Control del Robot FERB</h1>
 
   <div class="space-x-4 mb-6">
-    <button class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-700" onclick="setMode('Manual')">Modo Manual</button>
-  <button class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-700" onclick="setMode('Perrito')">Modo Perrito</button>
+    <button class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-700" onclick="setMode('manual')">Modo Manual</button>
+  <button class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-700" onclick="setMode('dog')">Modo Perrito</button>
   </div>
-<div class="flex space-x-20 items-center">
+<div class="flex space-x-8 items-center">
   <img id="camera" src="/camera/stream" alt="Cámara del robot" width="480"><br><br>
 <div class="flex flex-col items-center space-y-4 mb-4">
-  <button onclick="move('forward')" class="px-10 py-4 bg-blue-500 text-white rounded hover:bg-blue-700">▲</button>
-  <div class="flex space-x-6">
+  <button onclick="setDirection('forward')" class="px-10 py-4 bg-blue-500 text-white rounded hover:bg-blue-700">▲</button>
+  <div class="flex space-x-6 items-center">
     <button 
-      onmousedown="startMove('left')" 
-      onmouseup="stopMove()" 
-      onmouseleave="stopMove()" 
-      ontouchstart="startMove('left')" 
-      ontouchend="stopMove()" 
+      onclick="setDirection('left')" 
       class="px-10 py-4 bg-blue-500 text-white rounded hover:bg-blue-700">◀</button>
+    <!-- Botón de Parar en el centro -->
     <button 
-      onmousedown="startMove('right')" 
-      onmouseup="stopMove()" 
-      onmouseleave="stopMove()" 
-      ontouchstart="startMove('right')" 
-      ontouchend="stopMove()" 
+      onclick="stopMove()" 
+      class="px-10 py-4 bg-red-500 text-white rounded hover:bg-red-700 font-bold">■</button>
+    <button 
+      onclick="setDirection('right')" 
       class="px-10 py-4 bg-blue-500 text-white rounded hover:bg-blue-700">▶</button>
   </div>
   <button 
-    onmousedown="startMove('backward')" 
-    onmouseup="stopMove()" 
-    onmouseleave="stopMove()" 
-    ontouchstart="startMove('backward')" 
-    ontouchend="stopMove()" 
+    onclick="setDirection('backward')" 
     class="px-10 py-4 bg-blue-500 text-white rounded hover:bg-blue-700">▼</button>
 </div>
 </div>
@@ -45,10 +37,13 @@
 
   <script>
     let moveInterval = null;
+    let currentDirection = null;
 
-    function startMove(direction) {
-      move(direction); // send immediately
+    function setDirection(direction) {
+      if (currentDirection === direction) return;
+      currentDirection = direction;
       if (moveInterval) clearInterval(moveInterval);
+      move(direction); // send immediately
       moveInterval = setInterval(() => move(direction), 150);
     }
 
@@ -57,6 +52,7 @@
         clearInterval(moveInterval);
         moveInterval = null;
       }
+      currentDirection = null;
       move('stop');
     }
 
