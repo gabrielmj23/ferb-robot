@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from contextlib import asynccontextmanager
 from models import MoveRequest, ModeRequest
@@ -15,6 +15,7 @@ async def lifespan(app: FastAPI):
     """
     global robot
     robot = Ferb()
+    robot.start_dog_thread()
     yield
     robot.cleanup()
 
@@ -28,6 +29,7 @@ app = FastAPI(
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
 @app.post("/move/")
 async def move(move_request: MoveRequest):
     """
@@ -37,6 +39,7 @@ async def move(move_request: MoveRequest):
         return {"message": "El robot no se ha inicializado"}
 
     if robot.current_mode == "manual":
+        print(f"Moving robot - {move_request.direction} at speed {move_request.speed}")
         robot.move(move_request.direction, move_request.speed)
         return {
             "message": f"Se movió al robot - {move_request.direction} a velocidad {move_request.speed}"
@@ -64,6 +67,9 @@ async def camera_stream():
     """
     if robot is None:
         return {"message": "El robot no se ha inicializado"}
-    return StreamingResponse(
-        robot.camera_stream(), media_type="multipart/x-mixed-replace; boundary=frame"
-    )
+    try:
+        return StreamingResponse(
+            robot.camera_stream(), media_type="multipart/x-mixed-replace; boundary=frame"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Camera error: {e}")
