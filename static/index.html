@@ -17,21 +17,55 @@
 <div class="flex flex-col items-center space-y-4 mb-4">
   <button onclick="move('forward')" class="px-10 py-4 bg-blue-500 text-white rounded hover:bg-blue-700">▲</button>
   <div class="flex space-x-6">
-    <button onclick="move('left')" class="px-10 py-4 bg-blue-500 text-white rounded hover:bg-blue-700">◀</button>
-    <button onclick="move('right')" class="px-10 py-4 bg-blue-500 text-white rounded hover:bg-blue-700">▶</button>
+    <button 
+      onmousedown="startMove('left')" 
+      onmouseup="stopMove()" 
+      onmouseleave="stopMove()" 
+      ontouchstart="startMove('left')" 
+      ontouchend="stopMove()" 
+      class="px-10 py-4 bg-blue-500 text-white rounded hover:bg-blue-700">◀</button>
+    <button 
+      onmousedown="startMove('right')" 
+      onmouseup="stopMove()" 
+      onmouseleave="stopMove()" 
+      ontouchstart="startMove('right')" 
+      ontouchend="stopMove()" 
+      class="px-10 py-4 bg-blue-500 text-white rounded hover:bg-blue-700">▶</button>
   </div>
-  <button onclick="move('backward')" class="px-10 py-4 bg-blue-500 text-white rounded hover:bg-blue-700">▼</button>
+  <button 
+    onmousedown="startMove('backward')" 
+    onmouseup="stopMove()" 
+    onmouseleave="stopMove()" 
+    ontouchstart="startMove('backward')" 
+    ontouchend="stopMove()" 
+    class="px-10 py-4 bg-blue-500 text-white rounded hover:bg-blue-700">▼</button>
 </div>
 </div>
 
 
   <script>
+    let moveInterval = null;
+
+    function startMove(direction) {
+      move(direction); // send immediately
+      if (moveInterval) clearInterval(moveInterval);
+      moveInterval = setInterval(() => move(direction), 150);
+    }
+
+    function stopMove() {
+      if (moveInterval) {
+        clearInterval(moveInterval);
+        moveInterval = null;
+      }
+      move('stop');
+    }
+
     function move(direction) {
       fetch('/move/', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({direction: direction, speed: 1})
-      }).then(r => r.json()).then(alert);
+      });
     }
     function setMode(mode) {
       fetch('/mode/', {
