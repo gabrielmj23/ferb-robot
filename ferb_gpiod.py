@@ -1,18 +1,45 @@
 from gpiozero import Robot, Motor
+import gpiod
 from time import sleep
 import cv2
 from picamera2 import Picamera2
 import threading
 from perrito import perrito_mode
 
+# Pines para el Motor Izquierdo
+MOTOR_LEFT_FORWARD_PIN = 18    # GPIO 17 -> L298N IN1
+MOTOR_LEFT_BACKWARD_PIN = 17   # GPIO 18 -> L298N IN2
+MOTOR_LEFT_ENA_PIN = 12        # GPIO 12 -> L298N ENA (Enable Motor A)
+
+# Pines para el Motor Derecho
+MOTOR_RIGHT_FORWARD_PIN = 27   # GPIO 27 -> L298N IN3
+MOTOR_RIGHT_BACKWARD_PIN = 22  # GPIO 22 -> L298N IN4
+MOTOR_RIGHT_ENB_PIN = 13       # GPIO 13 -> L298N ENB (Enable Motor B)
+
 class Ferb:
     def __init__(
-        self, left_motor_pins=(26, 21), right_motor_pins=(0, 25), initial_mode="manual"
+        self, left_motor_pins=(18, 17), right_motor_pins=(22, 27), initial_mode="manual"
     ):
         """
         Setup the robot with the given motor pins.
         """
-        self.robot = Robot(left=Motor(*left_motor_pins, enable=18), right=Motor(*right_motor_pins, enable=27))
+        self.chip = gpiod.Chip("gpiochip0")
+        self.lines = {
+            "left_forward": self.chip.get_line(MOTOR_LEFT_FORWARD_PIN),
+            "left_backward": self.chip.get_line(MOTOR_LEFT_BACKWARD_PIN),
+            "left_ena": self.chip.get_line(MOTOR_LEFT_ENA_PIN),
+            "right_forward": self.chip.get_line(MOTOR_RIGHT_FORWARD_PIN),
+            "right_backward": self.chip.get_line(MOTOR_RIGHT_BACKWARD_PIN),
+            "right_enb": self.chip.get_line(MOTOR_RIGHT_ENB_PIN),
+            "chip": self.chip # Guardamos el chip para poder cerrarlo en finally
+        }
+        for name, line_obj in self.lines.items():
+            if name != "chip": # No solicitar el chip mismo
+                line_obj.request(consumer=f"motor_{name}", type=gpiod.LINE_REQ_DIR_OUT)
+                # Asegurarse de que estén apagadas al inicio
+                line_obj.set_value(0)
+
+        # self.robot = Robot(left=Motor(*left_motor_pins, enable=12), right=Motor(*right_motor_pins, enable=13))
         self.current_mode = initial_mode
         self.camera = None
         self.dog_thread_running = False # Para controlar el hilo del perrito
@@ -22,6 +49,73 @@ class Ferb:
         self._continuous_move_running = False
         self._continuous_direction = None
         self._continuous_speed = 1
+
+    def _set_motor_direction(self, forward_line, backward_line, forward_state, backward_state):
+        """Función interna para establecer la dirección de un motor."""
+        forward_line.set_value(forward_state)
+        backward_line.set_value(backward_state)
+
+    def _enable_motor(self, ena_line, enable=True):
+        """Función interna para habilitar/deshabilitar un motor."""
+        ena_line.set_value(1 if enable else 0)
+
+    def move_forward(self, duration=1):
+        """Mueve ambos motores hacia adelante."""
+        print(f"Moviendo ambos motores hacia adelante por {duration} segundos...")
+        # Motor Izquierdo adelante
+        self._set_motor_direction(self.lines["left_forward"], self.lines["left_backward"], 1, 0)
+        self._enable_motor(self.lines["left_ena"], True)
+        # Motor Derecho adelante
+        self._set_motor_direction(self.lines["right_forward"], self.lines["right_backward"], 1, 0)
+        self._enable_motor(self.lines["right_enb"], True)
+        sleep(duration)
+        self.stop_all_motors()
+
+    def move_backward(self, duration=1):
+        """Mueve ambos motores hacia atrás."""
+        print(f"Moviendo ambos motores hacia atrás por {duration} segundos...")
+        # Motor Izquierdo atrás
+        self._set_motor_direction(self.lines["left_forward"], self.lines["left_backward"], 0, 1)
+        self._enable_motor(self.lines["left_ena"], True)
+        # Motor Derecho atrás
+        self._set_motor_direction(self.lines["right_forward"], self.lines["right_backward"], 0, 1)
+        self._enable_motor(self.lines["right_enb"], True)
+        sleep(duration)
+        self.stop_all_motors()
+
+    def turn_left(self, duration=0.5):
+        """Gira el carro hacia la izquierda (motor izquierdo atrás, motor derecho adelante)."""
+        print(f"Girando a la izquierda por {duration} segundos...")
+        # Motor Izquierdo atrás
+        self._set_motor_direction(self.lines["left_forward"], self.lines["left_backward"], 0, 1)
+        self._enable_motor(self.lines["left_ena"], True)
+        # Motor Derecho adelante
+        self._set_motor_direction(self.lines["right_forward"], self.lines["right_backward"], 1, 0)
+        self._enable_motor(self.lines["right_enb"], True)
+        sleep(duration)
+        self.stop_all_motors()
+
+    def turn_right(self, duration=0.5):
+        """Gira el carro hacia la derecha (motor izquierdo adelante, motor derecho atrás)."""
+        print(f"Girando a la derecha por {duration} segundos...")
+        # Motor Izquierdo adelante
+        self._set_motor_direction(self.lines["left_forward"], self.lines["left_backward"], 1, 0)
+        self._enable_motor(self.lines["left_ena"], True)
+        # Motor Derecho atrás
+        self._set_motor_direction(self.lines["right_forward"], self.lines["right_backward"], 0, 1)
+        self._enable_motor(self.lines["right_enb"], True)
+        sleep(duration)
+        self.stop_all_motors()
+
+    def stop_all_motors(self):
+        """Detiene ambos motores."""
+        print("Deteniendo todos los motores...")
+        # Deshabilitar ambos ENA/ENB para cortar la energía
+        self._enable_motor(self.lines["left_ena"], False)
+        self._enable_motor(self.lines["right_enb"], False)
+        # Asegurarse de que las direcciones estén en LOW
+        self._set_motor_direction(self.lines["left_forward"], self.lines["left_backward"], 0, 0)
+        self._set_motor_direction(self.lines["right_forward"], self.lines["right_backward"], 0, 0)
 
     def _dog_handler(self):
         """
@@ -138,7 +232,12 @@ class Ferb:
         """
         self.stop_dog_thread() # Asegúrate de detener el hilo del perrito al limpiar
         self.stop_camera()
-        self.robot.close()
+        # self.robot.close()
+        # Liberar cada línea individualmente
+        for name, line_obj in self.lines.items():
+            if name != "chip": # No intentar liberar el objeto chip
+                line_obj.release()
+        self.lines["chip"].close() # Cerrar el chip GPIO al final
 
     def _continuous_move_worker(self):
         """
@@ -148,17 +247,22 @@ class Ferb:
             direction = self._continuous_direction
             speed = self._continuous_speed
             if direction == "forward":
-                self.robot.forward(speed)
+                # self.robot.forward(speed)
+                self.move_forward(0.2)
             elif direction == "backward":
-                self.robot.backward(speed)
+                # self.robot.backward(speed)
+                self.move_backward(0.2)
             elif direction == "left":
-                self.robot.left(speed)
+                # self.robot.left(speed)
+                self.turn_left(0.2)
             elif direction == "right":
-                self.robot.right(speed)
+                # self.robot.right(speed)
+                self.turn_right(0.2)
             elif direction == "stop" or direction is None:
-                self.robot.stop()
+                # self.robot.stop()
+                self.stop_all_motors()
             # Repite cada 0.2 segundos para mantener el movimiento
-            sleep(0.2)
+            # sleep(0.2)
 
     def start_continuous_move(self, direction, speed=1):
         """
@@ -182,7 +286,8 @@ class Ferb:
             self._continuous_move_thread.join(timeout=1)
         self._continuous_move_thread = None
         self._continuous_direction = None
-        self.robot.stop()
+        # self.robot.stop()
+        self.stop_all_motors()
 
     def move(self, direction: str, speed: float = 1.0, continuous: bool = False, duration: float = 1):
         """
@@ -202,16 +307,21 @@ class Ferb:
             self.stop_continuous_move()  # Detén cualquier movimiento continuo previo
             if direction == "forward":
                 print("Moving forward")
-                self.robot.forward(speed)
-                sleep(duration)
+                # self.robot.forward(speed)
+                # sleep(duration)
+                self.move_forward(duration)
             elif direction == "backward":
-                self.robot.backward(speed)
-                sleep(duration)
+                # self.robot.backward(speed)
+                # sleep(duration)
+                self.move_backward(duration)
             elif direction == "left":
-                self.robot.left(speed)
-                sleep(duration)
+                # self.robot.left(speed)
+                # sleep(duration)
+                self.turn_left(duration)
             elif direction == "right":
-                self.robot.right(speed)
-                sleep(duration)
+                # self.robot.right(speed)
+                # sleep(duration)
+                self.turn_right(duration)
             else:
-                self.robot.stop()
+                # self.robot.stop()
+                self.stop_all_motors()

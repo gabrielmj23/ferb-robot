@@ -15,7 +15,6 @@ async def lifespan(app: FastAPI):
     """
     global robot
     robot = Ferb()
-    robot.start_dog_thread()
     yield
     robot.cleanup()
 
@@ -31,18 +30,19 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.post("/move/")
-async def move(move_request: MoveRequest):
+async def move(move_request: MoveRequest, continuous: bool = False):
     """
     Move the robot in the specified direction.
+    Si continuous=True, el robot se moverá continuamente hasta recibir otra orden o stop.
     """
     if robot is None:
         return {"message": "El robot no se ha inicializado"}
 
     if robot.current_mode == "manual":
-        print(f"Moving robot - {move_request.direction} at speed {move_request.speed}")
-        robot.move(move_request.direction, move_request.speed)
+        print(f"Moving robot - {move_request.direction} at speed {move_request.speed} (continuous={continuous})")
+        robot.move(move_request.direction, move_request.speed, continuous=continuous)
         return {
-            "message": f"Se movió al robot - {move_request.direction} a velocidad {move_request.speed}"
+            "message": f"Se movió al robot - {move_request.direction} a velocidad {move_request.speed} (continuous={continuous})"
         }
 
     else:
@@ -56,7 +56,12 @@ async def mode(mode_request: ModeRequest):
     """
     if robot is None:
         return {"message": "El robot no se ha inicializado"}
+    print(f"Changing mode to {mode_request.mode}")
     robot.current_mode = mode_request.mode
+    if mode_request.mode == "manual":
+        robot.stop_dog_thread()
+    else:
+        robot.start_dog_thread()
     return {"message": f"Changing mode to {mode_request.mode}"}
 
 
