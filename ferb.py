@@ -220,13 +220,24 @@ class Ferb:
 
     def gps_stream(self):
         """
-        Generator que produce datos GPS en texto plano.
+        Generator que produce solo latitud y longitud, o un mensaje si no hay fix.
         """
         while True:
             data = self.gps.read_data()
+            lat = None
+            lon = None
+            # Intenta extraer latitud y longitud del objeto data
             if data:
-                yield f"data: {data}\n\n"
+                # Si data es un dict o tiene atributos lat/lon
+                if isinstance(data, dict):
+                    lat = data.get("lat") or data.get("latitude")
+                    lon = data.get("lon") or data.get("longitude")
+                else:
+                    lat = getattr(data, "lat", None) or getattr(data, "latitude", None)
+                    lon = getattr(data, "lon", None) or getattr(data, "longitude", None)
+            if lat is not None and lon is not None:
+                yield f"data: {lat},{lon}\n\n"
             else:
-                yield "data: No GPS data\n\n"
+                yield "data: El GPS no se ha posicionado. Muévase a un sitio más despejado.\n\n"
             import time
             time.sleep(1)
