@@ -1,6 +1,14 @@
 import raspy_qmc5883l
 import time
 
+"""
+BRUJULA
+VCC - PIN 1
+GND - PIN 14
+SDA - PIN 16 (GPIO 23)
+SCL - PIN 18 (GPIO 24)
+"""
+
 sensor = raspy_qmc5883l.QMC5883L(i2c_bus=4)
 m = sensor.get_magnet()
 print(m)
