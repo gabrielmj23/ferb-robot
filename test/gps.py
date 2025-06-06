@@ -2,6 +2,14 @@ import serial
 import time
 import pynmea2
 
+"""
+GPS
+VCC - PIN 4
+TX - PIN 10 (GPIO 15)
+RX - PIN 8 (GPIO 14)
+GND - PIN 9
+"""
+
 try:
     port = "/dev/ttyAMA0"
     baudrate = 38400
