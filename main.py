@@ -78,3 +78,18 @@ async def camera_stream():
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Camera error: {e}")
+
+
+@app.get("/gps/stream")
+async def gps_stream():
+    """
+    Stream de datos GPS en tiempo real (Server-Sent Events).
+    """
+    if robot is None:
+        return {"message": "El robot no se ha inicializado"}
+    try:
+        return StreamingResponse(
+            robot.gps_stream(), media_type="text/event-stream"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"GPS error: {e}")

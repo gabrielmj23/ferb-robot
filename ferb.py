@@ -4,6 +4,7 @@ import cv2
 from picamera2 import Picamera2
 import threading
 from perrito import perrito_mode
+from gps import GPS
 
 class Ferb:
     def __init__(
@@ -22,6 +23,7 @@ class Ferb:
         self._continuous_move_running = False
         self._continuous_direction = None
         self._continuous_speed = 1
+        self.gps = GPS()
 
     def _dog_handler(self):
         """
@@ -215,3 +217,16 @@ class Ferb:
                 sleep(duration)
             else:
                 self.robot.stop()
+
+    def gps_stream(self):
+        """
+        Generator que produce datos GPS en texto plano.
+        """
+        while True:
+            data = self.gps.read_data()
+            if data:
+                yield f"data: {data}\n\n"
+            else:
+                yield "data: No GPS data\n\n"
+            import time
+            time.sleep(1)
