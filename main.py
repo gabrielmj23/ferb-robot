@@ -39,7 +39,9 @@ async def move(move_request: MoveRequest, continuous: bool = False):
         return {"message": "El robot no se ha inicializado"}
 
     if robot.current_mode == "manual":
-        print(f"Moving robot - {move_request.direction} at speed {move_request.speed} (continuous={continuous})")
+        print(
+            f"Moving robot - {move_request.direction} at speed {move_request.speed} (continuous={continuous})"
+        )
         robot.move(move_request.direction, move_request.speed, continuous=continuous)
         return {
             "message": f"Se movió al robot - {move_request.direction} a velocidad {move_request.speed} (continuous={continuous})"
@@ -74,7 +76,8 @@ async def camera_stream():
         return {"message": "El robot no se ha inicializado"}
     try:
         return StreamingResponse(
-            robot.camera_stream(), media_type="multipart/x-mixed-replace; boundary=frame"
+            robot.camera_stream(),
+            media_type="multipart/x-mixed-replace; boundary=frame",
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Camera error: {e}")
@@ -88,8 +91,19 @@ async def gps_stream():
     if robot is None:
         return {"message": "El robot no se ha inicializado"}
     try:
-        return StreamingResponse(
-            robot.gps_stream(), media_type="text/event-stream"
-        )
+        return StreamingResponse(robot.gps_stream(), media_type="text/event-stream")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"GPS error: {e}")
+
+
+@app.get("/compass/stream")
+async def compass_stream():
+    """
+    Stream de datos de la brújula en tiempo real (Server-Sent Events).
+    """
+    if robot is None:
+        return {"message": "El robot no se ha inicializado"}
+    try:
+        return StreamingResponse(robot.compass_stream(), media_type="text/event-stream")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Compass error: {e}")

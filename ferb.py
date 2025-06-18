@@ -5,6 +5,8 @@ from picamera2 import Picamera2
 import threading
 from perrito import perrito_mode
 from gps import GPS
+from brujula import Brujula
+
 
 class Ferb:
     def __init__(
@@ -13,10 +15,13 @@ class Ferb:
         """
         Setup the robot with the given motor pins.
         """
-        self.robot = Robot(left=Motor(*left_motor_pins, enable=18), right=Motor(*right_motor_pins, enable=27))
+        self.robot = Robot(
+            left=Motor(*left_motor_pins, enable=18),
+            right=Motor(*right_motor_pins, enable=27),
+        )
         self.current_mode = initial_mode
         self.camera = None
-        self.dog_thread_running = False # Para controlar el hilo del perrito
+        self.dog_thread_running = False  # Para controlar el hilo del perrito
         self.dog_thread = None
         self.camera_failed = False  # Track camera failure state
         self._continuous_move_thread = None
@@ -24,6 +29,11 @@ class Ferb:
         self._continuous_direction = None
         self._continuous_speed = 1
         self.gps = GPS()
+        self.brujula = Brujula(
+            i2c_bus=4,
+            calibration=Brujula.UCAB_CALIBRATION,
+            declination=Brujula.UCAB_DECLINATION,
+        )
 
     def _dog_handler(self):
         """
@@ -33,7 +43,7 @@ class Ferb:
             if self.current_mode == "dog":
                 print("entro a modo perrito")
                 perrito_mode(self)
-            sleep(0.5) # Pequeña pausa para no saturar la CPU
+            sleep(0.5)  # Pequeña pausa para no saturar la CPU
 
     def start_dog_thread(self):
         """
@@ -42,7 +52,9 @@ class Ferb:
         if not self.dog_thread_running:
             self.dog_thread_running = True
             self.dog_thread = threading.Thread(target=self._dog_handler)
-            self.dog_thread.daemon = True # Hace que el hilo se cierre cuando el programa principal termina
+            self.dog_thread.daemon = (
+                True  # Hace que el hilo se cierre cuando el programa principal termina
+            )
             self.dog_thread.start()
             print("Hilo 'perrito' iniciado.")
 
@@ -56,7 +68,6 @@ class Ferb:
                 self.dog_thread.join()  # Espera a que el hilo termine su ejecución actual
             print("Hilo 'perrito' detenido.")
 
-
     def start_camera(self, camera_index=0):
         """
         Initialize the camera.
@@ -69,7 +80,8 @@ class Ferb:
                 self.camera = Picamera2()
                 self.camera.configure(
                     self.camera.create_preview_configuration(
-                        raw={"size":(1640,1232)}, main={"format":"RGB888", "size": (640,480)}
+                        raw={"size": (1640, 1232)},
+                        main={"format": "RGB888", "size": (640, 480)},
                     )
                 )
                 self.camera.start()
@@ -108,8 +120,17 @@ class Ferb:
         except Exception as e:
             # Yield a single frame with an error message as JPEG
             import numpy as np
+
             img = np.zeros((100, 480, 3), dtype=np.uint8)
-            cv2.putText(img, "Camera error", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,255), 3)
+            cv2.putText(
+                img,
+                "Camera error",
+                (10, 60),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                2,
+                (0, 0, 255),
+                3,
+            )
             ret, jpeg = cv2.imencode(".jpg", img)
             if ret:
                 yield (
@@ -138,7 +159,7 @@ class Ferb:
         """
         Cleanup the robot resources.
         """
-        self.stop_dog_thread() # Asegúrate de detener el hilo del perrito al limpiar
+        self.stop_dog_thread()  # Asegúrate de detener el hilo del perrito al limpiar
         self.stop_camera()
         self.robot.close()
 
@@ -171,7 +192,9 @@ class Ferb:
         self._continuous_speed = speed
         if direction != "stop":
             self._continuous_move_running = True
-            self._continuous_move_thread = threading.Thread(target=self._continuous_move_worker)
+            self._continuous_move_thread = threading.Thread(
+                target=self._continuous_move_worker
+            )
             self._continuous_move_thread.daemon = True
             self._continuous_move_thread.start()
 
@@ -186,7 +209,13 @@ class Ferb:
         self._continuous_direction = None
         self.robot.stop()
 
-    def move(self, direction: str, speed: float = 1.0, continuous: bool = False, duration: float = 1):
+    def move(
+        self,
+        direction: str,
+        speed: float = 1.0,
+        continuous: bool = False,
+        duration: float = 1,
+    ):
         """
         Handle movement.
         Si continuous=True, mantiene el movimiento hasta que se mande otra dirección o stop.
@@ -239,5 +268,17 @@ class Ferb:
                 yield f"data: {lat},{lon}\n\n"
             else:
                 yield "data: El GPS no se ha posicionado. Muévase a un sitio más despejado.\n\n"
-            import time
-            time.sleep(1)
+
+            sleep(1)
+
+    def compass_stream(self):
+        """
+        Generator que produce la dirección de la brújula.
+        """
+        while True:
+            bearing = self.brujula.sensor.get_bearing()
+            if bearing is not None:
+                yield f"data: {bearing:.2f}\n\n"
+            else:
+                yield "data: Error al obtener la dirección de la brújula.\n\n"
+            sleep(0.25)
