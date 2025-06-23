@@ -81,12 +81,12 @@
       </div>
     </div>
 
-    <!-- Mapa del laboratorio -->
+    <!-- Mapa real con OpenStreetMap -->
     <div class="mt-8 flex flex-col items-center">
-      <h2 class="text-2xl font-semibold mb-2">Mapa del Laboratorio</h2>
-      <div id="lab-map" style="width: 500px; height: 400px; border: 2px solid #888;"></div>
+      <h2 class="text-2xl font-semibold mb-2">Mapa del Robot (GPS)</h2>
+      <div id="gps-map" style="width: 500px; height: 400px; border: 2px solid #888;"></div>
       <div class="mt-2 text-gray-700">
-        Posición seleccionada: <span id="selected-coords">Ninguna</span>
+        Posición seleccionada: <span id="selected-gps">Ninguna</span>
       </div>
     </div>
 
@@ -169,30 +169,50 @@
         }
       };
 
-      // Mapa personalizado con imagen
-      const map = L.map('lab-map', {
-        crs: L.CRS.Simple,
-        minZoom: -2,
-        maxZoom: 2,
-        zoomControl: true,
-      });
-      // Tamaño de la imagen (ajusta a tu imagen)
-      const w = 1000, h = 800; // ancho y alto en píxeles
-      const imageUrl = 'lab.png'; // pon tu imagen en /static/lab.png
-      const bounds = [[0,0], [h, w]];
-      L.imageOverlay(imageUrl, bounds).addTo(map);
-      map.fitBounds(bounds);
+      // --- Mapa real con Leaflet y OpenStreetMap ---
+      // Coordenadas iniciales (puedes poner las del laboratorio o del robot)
+      const initialLat = 4.601, initialLng = -74.066; // Ejemplo: Bogotá
+      const gpsMap = L.map('gps-map').setView([initialLat, initialLng], 20);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 22,
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(gpsMap);
 
-      let marker;
-      map.on('click', function(e) {
+      // Marcador del robot (puedes actualizar su posición con JS)
+      let robotMarker = L.marker([initialLat, initialLng], {color: 'red'}).addTo(gpsMap).bindPopup('Robot');
+
+      // Selección de punto destino
+      let destMarker;
+      gpsMap.on('click', function(e) {
         const {lat, lng} = e.latlng;
-        if (marker) marker.setLatLng([lat, lng]);
-        else marker = L.marker([lat, lng]).addTo(map);
-        // Mostrar coordenadas relativas
-        document.getElementById('selected-coords').textContent = `X: ${lng.toFixed(1)}, Y: ${lat.toFixed(1)}`;
-        // Aquí puedes hacer un fetch al backend para enviar la posición
-        // fetch('/set_target', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({x: lng, y: lat}) });
+        if (destMarker) destMarker.setLatLng([lat, lng]);
+        else destMarker = L.marker([lat, lng], {color: 'blue'}).addTo(gpsMap).bindPopup('Destino').openPopup();
+        document.getElementById('selected-gps').textContent = `Lat: ${lat.toFixed(6)}, Lon: ${lng.toFixed(6)}`;
+        // Aquí puedes hacer un fetch al backend para enviar la posición destino
+        // fetch('/set_target', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({lat, lon: lng}) });
       });
+
+      // --- Actualizar posición del robot con stream GPS ---
+      // Escuchar el stream SSE del GPS
+      const gpsEventSource = new EventSource('/gps/stream');
+      gpsEventSource.onmessage = function(event) {
+        // Espera formato: "Latitude: 4.601234, Longitude: -74.066789"
+        const data = event.data;
+        const match = data.match(/Latitude:\s*([\d.-]+),\s*Longitude:\s*([\d.-]+)/);
+        if (match) {
+          const lat = parseFloat(match[1]);
+          const lng = parseFloat(match[2]);
+          robotMarker.setLatLng([lat, lng]);
+          gpsMap.panTo([lat, lng]);
+        }
+      };
+
+      // Si quieres actualizar la posición del robot dinámicamente, puedes hacer:
+      // function updateRobotPosition(lat, lng) {
+      //   robotMarker.setLatLng([lat, lng]);
+      //   gpsMap.panTo([lat, lng]);
+      // }
+      // Llama a updateRobotPosition con los datos del GPS
     </script>
   </body>
 </html>
