@@ -6,6 +6,7 @@ import threading
 from perrito import perrito_mode
 from gps import GPS
 from brujula import Brujula
+from modo_obstaculos import modo_obstaculos
 
 
 class Ferb:
@@ -34,6 +35,8 @@ class Ferb:
             calibration=Brujula.UCAB_CALIBRATION,
             declination=Brujula.UCAB_DECLINATION,
         )
+        self.obstaculos_thread_running = False  # Para controlar el hilo de obstáculos
+        self.obstaculos_thread = None
 
     def _dog_handler(self):
         """
@@ -67,6 +70,37 @@ class Ferb:
             if self.dog_thread and threading.current_thread() != self.dog_thread:
                 self.dog_thread.join()  # Espera a que el hilo termine su ejecución actual
             print("Hilo 'perrito' detenido.")
+
+    def _obstaculos_handler(self):
+        """
+        Private method to handle obstaculos mode
+        """
+        while self.obstaculos_thread_running:
+            if self.current_mode == "obstaculos":
+                print("entro a modo obstaculos")
+                modo_obstaculos(self)
+            sleep(0.5)
+
+    def start_obstaculos_thread(self):
+        """
+        Starts the thread for obstaculos mode.
+        """
+        if not hasattr(self, 'obstaculos_thread_running') or not self.obstaculos_thread_running:
+            self.obstaculos_thread_running = True
+            self.obstaculos_thread = threading.Thread(target=self._obstaculos_handler)
+            self.obstaculos_thread.daemon = True
+            self.obstaculos_thread.start()
+            print("Hilo 'obstaculos' iniciado.")
+
+    def stop_obstaculos_thread(self):
+        """
+        Stops the thread for obstaculos mode.
+        """
+        if hasattr(self, 'obstaculos_thread_running') and self.obstaculos_thread_running:
+            self.obstaculos_thread_running = False
+            if self.obstaculos_thread and threading.current_thread() != self.obstaculos_thread:
+                self.obstaculos_thread.join()
+            print("Hilo 'obstaculos' detenido.")
 
     def start_camera(self, camera_index=0):
         """
@@ -160,6 +194,7 @@ class Ferb:
         Cleanup the robot resources.
         """
         self.stop_dog_thread()  # Asegúrate de detener el hilo del perrito al limpiar
+        self.stop_obstaculos_thread()  # Detén el hilo de obstáculos también
         self.stop_camera()
         self.robot.close()
 

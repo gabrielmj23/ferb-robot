@@ -15,10 +15,11 @@ def estimar_distancia_caja(caja, focal=FOCAL_LENGTH_PIXELS, real_h=REAL_OBJECT_H
     distancia = (focal * real_h) / h
     return distancia
 
-def detectar_obstaculos(frame, min_area=2000):
+def detectar_obstaculos(frame, min_area=2000, aspect_ratio_range=(0.3, 3.0)):
     """
     Detecta obstáculos en la imagen y dibuja cajas alrededor de ellos.
     Retorna la imagen con las cajas y una lista de las cajas encontradas.
+    Aplica filtrado morfológico y filtrado por aspecto para mayor precisión.
     """
     # Convertir a escala de grises
     gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
@@ -26,26 +27,32 @@ def detectar_obstaculos(frame, min_area=2000):
     blurred = cv2.GaussianBlur(gray, (7, 7), 0)
     # Umbral simple para detectar objetos oscuros
     _, thresh = cv2.threshold(blurred, 60, 255, cv2.THRESH_BINARY_INV)
+    # Filtrado morfológico para limpiar ruido
+    kernel = np.ones((5, 5), np.uint8)
+    opened = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+    closed = cv2.morphologyEx(opened, cv2.MORPH_CLOSE, kernel)
     # Encontrar contornos
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     resultados = []
     for cnt in contours:
         area = cv2.contourArea(cnt)
         if area > min_area:
             x, y, w, h = cv2.boundingRect(cnt)
-            distancia = estimar_distancia_caja((x, y, w, h))
-            resultados.append(((x, y, w, h), distancia))
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            if distancia is not None:
-                cv2.putText(
-                    frame,
-                    f"{distancia:.1f}cm",
-                    (x, y - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    (0, 255, 0),
-                    2,
-                )
+            aspect_ratio = w / float(h) if h != 0 else 0
+            if aspect_ratio_range[0] <= aspect_ratio <= aspect_ratio_range[1]:
+                distancia = estimar_distancia_caja((x, y, w, h))
+                resultados.append(((x, y, w, h), distancia))
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                if distancia is not None:
+                    cv2.putText(
+                        frame,
+                        f"{distancia:.1f}cm",
+                        (x, y - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7,
+                        (0, 255, 0),
+                        2,
+                    )
     return frame, resultados
 
 def modo_obstaculos(ferb):
