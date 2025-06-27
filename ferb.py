@@ -7,6 +7,7 @@ from perrito import perrito_mode
 from gps import GPS
 from brujula import Brujula
 from modo_obstaculos import modo_obstaculos
+from modo_gestos_control import modo_gestos_control
 
 
 class Ferb:
@@ -37,6 +38,8 @@ class Ferb:
         )
         self.obstaculos_thread_running = False  # Para controlar el hilo de obstáculos
         self.obstaculos_thread = None
+        self.gestos_thread_running = False  # Para controlar el hilo de gestos
+        self.gestos_thread = None
 
     def _dog_handler(self):
         """
@@ -101,6 +104,37 @@ class Ferb:
             if self.obstaculos_thread and threading.current_thread() != self.obstaculos_thread:
                 self.obstaculos_thread.join()
             print("Hilo 'obstaculos' detenido.")
+
+    def _gestos_handler(self):
+        """
+        Private method to handle gestos mode
+        """
+        while self.gestos_thread_running:
+            if self.current_mode == "gestos":
+                print("entro a modo gestos")
+                modo_gestos_control(self)
+            sleep(0.5)
+
+    def start_gestos_thread(self):
+        """
+        Starts the thread for gestos mode.
+        """
+        if not hasattr(self, 'gestos_thread_running') or not self.gestos_thread_running:
+            self.gestos_thread_running = True
+            self.gestos_thread = threading.Thread(target=self._gestos_handler)
+            self.gestos_thread.daemon = True
+            self.gestos_thread.start()
+            print("Hilo 'gestos' iniciado.")
+
+    def stop_gestos_thread(self):
+        """
+        Stops the thread for gestos mode.
+        """
+        if hasattr(self, 'gestos_thread_running') and self.gestos_thread_running:
+            self.gestos_thread_running = False
+            if self.gestos_thread and threading.current_thread() != self.gestos_thread:
+                self.gestos_thread.join()
+            print("Hilo 'gestos' detenido.")
 
     def start_camera(self, camera_index=0):
         """
@@ -195,6 +229,7 @@ class Ferb:
         """
         self.stop_dog_thread()  # Asegúrate de detener el hilo del perrito al limpiar
         self.stop_obstaculos_thread()  # Detén el hilo de obstáculos también
+        self.stop_gestos_thread()  # Detén el hilo de gestos también
         self.stop_camera()
         self.robot.close()
 
