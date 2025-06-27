@@ -13,3 +13,16 @@ class ModeRequest(BaseModel):
     """Representa una solicitud de cambio de modo del robot."""
 
     mode: Literal["manual", "dog"] = "manual"
+
+
+class Coordenada(BaseModel):
+    """Representa una coordenada GPS."""
+
+    lat: float
+    lng: float
+
+
+class NavigationRequest(BaseModel):
+    """Representa una solicitud de navegación."""
+
+    ruta: list[Coordenada] = []  # Lista de coordenadas GPS que forman la ruta

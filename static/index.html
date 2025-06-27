@@ -33,9 +33,9 @@
       </button>
       <button
         class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-700"
-        onclick="setMode('obstaculos')"
+        onclick="setMode('navegacion')"
       >
-        Modo Obstáculos
+        Modo Navegación
       </button>
     </div>
     <div class="flex space-x-8 items-center">
@@ -93,6 +93,15 @@
       </div>
     </div>
 
+    <!-- Sección de ruta para modo navegación -->
+    <div id="ruta-section" class="mt-6 flex flex-col items-center space-y-2" style="display:none;">
+      <div class="flex space-x-4">
+        <button id="btn-marcar-ruta" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-800">Marcar ubicación actual</button>
+        <button id="btn-confirmar-ruta" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-800">Confirmar ruta</button>
+      </div>
+      <div class="text-gray-700 text-sm">Puntos marcados: <span id="ruta-count">0</span></div>
+    </div>
+
     <!-- Mapa real con OpenStreetMap -->
     <div class="mt-8 flex flex-col items-center">
       <h2 class="text-2xl font-semibold mb-2">Mapa del Robot (GPS)</h2>
@@ -103,6 +112,16 @@
     </div>
 
     <script>
+      // --- Variables y funciones para la ruta ---
+      let ruta = [];
+      let modoActual = null;
+      let ultimaPosicionRobot = null;
+
+      // Actualizar visibilidad de la sección de ruta
+      function mostrarRutaSection(mostrar) {
+        document.getElementById('ruta-section').style.display = mostrar ? '' : 'none';
+      }
+
       function setDirection(direction) {
         move(direction); // Enviar la dirección solo una vez por clic
       }
@@ -128,6 +147,8 @@
           .then((data) => {
             console.log(data);
           });
+        modoActual = mode;
+        mostrarRutaSection(mode === 'navegacion');
       }
 
       // Brújula: escuchar el stream y dibujar la flecha
@@ -216,15 +237,40 @@
           const lng = parseFloat(match[2]);
           robotMarker.setLatLng([lat, lng]);
           gpsMap.panTo([lat, lng]);
+          ultimaPosicionRobot = {lat, lng};
         }
       };
 
-      // Si quieres actualizar la posición del robot dinámicamente, puedes hacer:
-      // function updateRobotPosition(lat, lng) {
-      //   robotMarker.setLatLng([lat, lng]);
-      //   gpsMap.panTo([lat, lng]);
-      // }
-      // Llama a updateRobotPosition con los datos del GPS
+      // --- Marcar ubicación actual en la ruta ---
+      document.getElementById('btn-marcar-ruta').addEventListener('click', function() {
+        if (ultimaPosicionRobot) {
+          ruta.push({...ultimaPosicionRobot});
+          document.getElementById('ruta-count').textContent = ruta.length;
+        } else {
+          alert('No se ha recibido la posición del robot aún.');
+        }
+      });
+
+      // --- Confirmar ruta y enviar al backend ---
+      document.getElementById('btn-confirmar-ruta').addEventListener('click', function() {
+        if (ruta.length === 0) {
+          alert('No hay puntos en la ruta.');
+          return;
+        }
+        fetch('/start-navigation/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ruta: ruta })
+        })
+          .then(response => response.json())
+          .then(data => {
+            alert(data.message || 'Ruta enviada');
+            ruta = []; // Limpiar ruta después de enviar
+          })
+          .catch(err => {
+            alert('Error al enviar la ruta: ' + err);
+          });
+      });
     </script>
   </body>
 </html>

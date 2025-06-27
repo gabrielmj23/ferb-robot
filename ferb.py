@@ -7,6 +7,7 @@ from perrito import perrito_mode
 from gps import GPS
 from brujula import Brujula
 from modo_obstaculos import modo_obstaculos
+from math import radians, sin, cos, sqrt, atan2
 from modo_gestos_control import modo_gestos_control
 
 
@@ -40,6 +41,7 @@ class Ferb:
         self.obstaculos_thread = None
         self.gestos_thread_running = False  # Para controlar el hilo de gestos
         self.gestos_thread = None
+        self.ruta = []
 
     def _dog_handler(self):
         """
@@ -352,3 +354,121 @@ class Ferb:
             else:
                 yield "data: Error al obtener la dirección de la brújula.\n\n"
             sleep(0.25)
+
+    def start_navigation(self, ruta):
+        """
+        Inicia la navegación especificando una ruta.
+        """
+        if not isinstance(ruta, list) or not all(
+            isinstance(coord, dict) and "lat" in coord and "lng" in coord for coord in ruta
+        ):
+            raise ValueError("La ruta debe ser una lista de diccionarios con 'lat' y 'lng'.")
+
+        self.ruta = ruta
+        self.navigate()
+
+    def haversine(self, lat1, lon1, lat2, lon2):
+        """
+        Calcula la distancia en metros entre dos coordenadas GPS.
+        """
+        R = 6371000  # Radio de la Tierra en metros
+        lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        return R * c
+
+    def bearing_to(self, lat1, lon1, lat2, lon2):
+        """
+        Calcula el rumbo (en grados) del punto actual al objetivo.
+        """
+        lat1 = radians(lat1)
+        lat2 = radians(lat2)
+        dlon = radians(lon2 - lon1)
+        x = sin(dlon) * cos(lat2)
+        y = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dlon)
+        initial_bearing = atan2(x, y)
+        initial_bearing = degrees(initial_bearing)
+        compass_bearing = (initial_bearing + 360) % 360
+        return compass_bearing
+
+    def get_current_position(self):
+        """
+        Lee la posición actual del GPS (lat, lon). Devuelve None si no hay fix.
+        """
+        data = self.gps.read_data()
+        lat = None
+        lon = None
+        if data:
+            if isinstance(data, dict):
+                lat = data.get("lat") or data.get("latitude")
+                lon = data.get("lon") or data.get("longitude")
+            else:
+                lat = getattr(data, "lat", None) or getattr(data, "latitude", None)
+                lon = getattr(data, "lon", None) or getattr(data, "longitude", None)
+        if lat is not None and lon is not None:
+            return float(lat), float(lon)
+        return None
+
+    def get_current_heading(self):
+        """
+        Obtiene el heading actual de la brújula.
+        """
+        return self.brujula.sensor.get_bearing()
+
+    def turn_to_heading(self, target_heading, tolerance=5):
+        """
+        Gira el robot hasta que el heading esté dentro del tolerance (grados).
+        """
+        while True:
+            current_heading = self.get_current_heading()
+            if current_heading is None:
+                continue
+            diff = (target_heading - current_heading + 360) % 360
+            if diff < tolerance or diff > 360 - tolerance:
+                self.robot.stop()
+                break
+            elif diff < 180:
+                self.robot.right(speed=1)
+            else:
+                self.robot.left(speed=1)
+            sleep(0.1)
+        self.robot.stop()
+
+    def navigate(self, threshold=2.0, avance_time=10):
+        """
+        Navega a través de la ruta especificada (self.ruta).
+        threshold: distancia en metros para considerar que llegó al punto.
+        avance_time: tiempo en segundos para avanzar antes de volver a chequear.
+        """
+        if not self.ruta:
+            raise ValueError("No hay ruta definida para navegar.")
+        for idx, punto in enumerate(self.ruta):
+            target_lat = punto["lat"]
+            target_lon = punto["lng"]
+            while True:
+                pos = self.get_current_position()
+                if not pos:
+                    print("Esperando señal GPS...")
+                    sleep(1)
+                    continue
+                lat, lon = pos
+                dist = self.haversine(lat, lon, target_lat, target_lon)
+                print(f"Punto {idx+1}/{len(self.ruta)}: Distancia al objetivo: {dist:.2f} m")
+                if dist < threshold:
+                    print(f"Punto {idx+1} alcanzado.")
+                    self.robot.stop()
+                    break
+                bearing = self.bearing_to(lat, lon, target_lat, target_lon)
+                print(f"Rumbo objetivo: {bearing:.2f}°")
+                self.turn_to_heading(bearing)
+                print(f"Avanzando {avance_time} segundos...")
+                self.robot.forward(speed=1)
+                sleep(avance_time)
+                self.robot.stop()
+                print("Reevaluando posición...")
+        print("Ruta completada.")
+        self.ruta = []
+
+

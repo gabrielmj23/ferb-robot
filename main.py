@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from contextlib import asynccontextmanager
-from models import MoveRequest, ModeRequest
+from models import MoveRequest, ModeRequest, NavigationRequest
 from ferb import Ferb
 from fastapi.staticfiles import StaticFiles
 
@@ -107,3 +107,15 @@ async def compass_stream():
         return StreamingResponse(robot.compass_stream(), media_type="text/event-stream")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Compass error: {e}")
+
+
+@app.post("/start-navigation/")
+async def start_navigation(navigation_request: NavigationRequest):
+    """
+    Iniciar navegación especificando una ruta.
+    """
+    if robot is None:
+        return {"message": "El robot no se ha inicializado"}
+
+    robot.start_navigation(navigation_request.ruta)
+    return {"message": "Navegación terminada"}
