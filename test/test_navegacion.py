@@ -89,9 +89,14 @@ sensor = raspy_qmc5883l.QMC5883L(i2c_bus=4)
 #     [-0.07849639680169994, 1.0406766586149614, -240.3239973414732],
 #     [0.0, 0.0, 1.0],
 # ]
+# sensor.calibration = [
+#     [1.1339814697578658, -0.08728362617636402, 2939.273917584574],
+#     [-0.08728362617636401, 1.0568618288205334, -429.28958308353225],
+#     [0.0, 0.0, 1.0],
+# ]
 sensor.calibration = [
-    [1.1339814697578658, -0.08728362617636402, 2939.273917584574],
-    [-0.08728362617636401, 1.0568618288205334, -429.28958308353225],
+    [1.1282029640296785, -0.0922943484231867, 3012.13410796078], 
+    [-0.0922943484231867, 1.066443446259859, -410.9975560333092], 
     [0.0, 0.0, 1.0],
 ]
 sensor.declination = -15.9
@@ -160,7 +165,7 @@ def haversine(lat1, lon1, lat2, lon2):
     dlat = lat2 - lat1 
     a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
     c = 2 * math.asin(math.sqrt(a)) 
-    r = 6371 # Radius of earth in kilometers. Use 3956 for miles. Determines return value units.
+    r = 6371 * 1000 # Radius of earth in kilometers. Use 3956 for miles. Determines return value units.
     return c * r
 
 
