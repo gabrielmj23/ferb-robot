@@ -7,7 +7,7 @@ from perrito import perrito_mode
 from gps import GPS
 from brujula import Brujula
 from modo_obstaculos import modo_obstaculos
-from math import radians, sin, cos, sqrt, atan2
+from math import radians, sin, cos, sqrt, atan2, degrees
 from modo_gestos_control import modo_gestos_control
 
 
@@ -150,8 +150,8 @@ class Ferb:
                 self.camera = Picamera2()
                 self.camera.configure(
                     self.camera.create_preview_configuration(
-                        raw={"size": (1640, 1232)},
-                        main={"format": "RGB888", "size": (640, 480)},
+                        raw={"size": (820, 616)},
+                        main={"format": "RGB888", "size": (320, 240)},
                     )
                 )
                 self.camera.start()
@@ -359,11 +359,7 @@ class Ferb:
         """
         Inicia la navegación especificando una ruta.
         """
-        if not isinstance(ruta, list) or not all(
-            isinstance(coord, dict) and "lat" in coord and "lng" in coord for coord in ruta
-        ):
-            raise ValueError("La ruta debe ser una lista de diccionarios con 'lat' y 'lng'.")
-
+        print("Iniciando navegación con la ruta:", ruta)
         self.ruta = ruta
         self.navigate()
 
@@ -436,7 +432,7 @@ class Ferb:
             sleep(0.1)
         self.robot.stop()
 
-    def navigate(self, threshold=2.0, avance_time=10):
+    def navigate(self, threshold=1.0, avance_time=10):
         """
         Navega a través de la ruta especificada (self.ruta).
         threshold: distancia en metros para considerar que llegó al punto.
@@ -445,8 +441,8 @@ class Ferb:
         if not self.ruta:
             raise ValueError("No hay ruta definida para navegar.")
         for idx, punto in enumerate(self.ruta):
-            target_lat = punto["lat"]
-            target_lon = punto["lng"]
+            target_lat = punto.lat
+            target_lon = punto.lng
             while True:
                 pos = self.get_current_position()
                 if not pos:

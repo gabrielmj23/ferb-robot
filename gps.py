@@ -32,17 +32,16 @@ class GPS:
             return None
 
         try:
-            newdata = self.ser.readline().decode('utf-8').strip()
-            if newdata.startswith("$GPRMC"):
-                newmsg = pynmea2.parse(newdata)
-                lat = newmsg.latitude
-                lng = newmsg.longitude
-                if lat == 0.0 and lng == 0.0:
-                    return "El GPS no se ha posicionado. Muévase a un sitio más despejado."
-                gps_data = f"Latitude: {lat:.6f}, Longitude: {lng:.6f}"
-                return gps_data
-            else:
-                return f"Received: {newdata}"
+            while True:
+                newdata = self.ser.readline().decode('utf-8').strip()
+                if newdata.startswith("$GNRMC"):
+                    newmsg = pynmea2.parse(newdata)
+                    lat = newmsg.latitude
+                    lng = newmsg.longitude
+                    if lat == 0.0 and lng == 0.0:
+                        return "El GPS no se ha posicionado. Muévase a un sitio más despejado."
+                    gps_data = f"Latitude: {lat:.6f}, Longitude: {lng:.6f}"
+                    return {"lat": lat, "lon": lng}
         except (pynmea2.ParseError, UnicodeDecodeError) as e:
             print(f"Error parsing GPS data: {e}")
             return None

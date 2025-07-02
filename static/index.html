@@ -231,14 +231,15 @@
       gpsEventSource.onmessage = function(event) {
         // Espera formato: "Latitude: 4.601234, Longitude: -74.066789"
         const data = event.data;
-        const match = data.match(/Latitude:\s*([\d.-]+),\s*Longitude:\s*([\d.-]+)/);
-        if (match) {
-          const lat = parseFloat(match[1]);
-          const lng = parseFloat(match[2]);
+        const [latStr, lngStr] = data.replace('data: ', '').split(',');
+        const lat = parseFloat(latStr);
+        const lng = parseFloat(lngStr);
+        if (!isNaN(lat) && !isNaN(lng)) {
           robotMarker.setLatLng([lat, lng]);
           gpsMap.panTo([lat, lng]);
           ultimaPosicionRobot = {lat, lng};
         }
+        
       };
 
       // --- Marcar ubicación actual en la ruta ---
