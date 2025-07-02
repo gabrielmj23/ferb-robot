@@ -31,6 +31,7 @@ def modo_gestos_control(robot):
             if results.multi_hand_landmarks:
                 for hand_landmarks in results.multi_hand_landmarks:
                     dedos = dedos_extendidos(hand_landmarks)
+                    print(dedos)
                     # Lógica de control
                     if dedos == [False, False, False, False, False]:
                         accion = "forward"
@@ -67,11 +68,9 @@ def modo_gestos_control(robot):
                     # Mostrar landmarks sobre frame BGR
                     frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
                     mp_drawing.draw_landmarks(frame_bgr, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-                    cv2.imshow("Gestos Control - MediaPipe", frame_bgr)
             else:
                 # Si no hay mano, mostrar frame normal
                 frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
-                cv2.imshow("Gestos Control - MediaPipe", frame_bgr)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
             sleep(0.2)

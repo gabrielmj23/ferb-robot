@@ -12,7 +12,7 @@ class MoveRequest(BaseModel):
 class ModeRequest(BaseModel):
     """Representa una solicitud de cambio de modo del robot."""
 
-    mode: Literal["manual", "dog"] = "manual"
+    mode: Literal["manual", "dog", "navegacion", "gestos"] = "manual"
 
 
 class Coordenada(BaseModel):

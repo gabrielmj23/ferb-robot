@@ -60,9 +60,14 @@ async def mode(mode_request: ModeRequest):
         return {"message": "El robot no se ha inicializado"}
     print(f"Changing mode to {mode_request.mode}")
     robot.current_mode = mode_request.mode
-    if mode_request.mode == "manual":
-        robot.stop_dog_thread()
+    if mode_request.mode != "dog":
+        if mode_request.mode == "gestos":
+            robot.start_gestos_thread()
+        else:
+            robot.stop_dog_thread()
+            robot.stop_gestos_thread()
     else:
+        robot.stop_gestos_thread()
         robot.start_dog_thread()
     return {"message": f"Changing mode to {mode_request.mode}"}
 

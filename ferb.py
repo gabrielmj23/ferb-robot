@@ -13,7 +13,7 @@ from modo_gestos_control import modo_gestos_control
 
 class Ferb:
     def __init__(
-        self, left_motor_pins=(26, 21), right_motor_pins=(0, 25), initial_mode="manual"
+        self, left_motor_pins=(21, 26), right_motor_pins=(0, 25), initial_mode="manual"
     ):
         """
         Setup the robot with the given motor pins.
