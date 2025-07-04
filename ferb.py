@@ -9,6 +9,7 @@ from brujula import Brujula
 from modo_obstaculos import modo_obstaculos
 from math import radians, sin, cos, sqrt, atan2, degrees
 from modo_gestos_control import modo_gestos_control
+from collections import deque
 
 
 class Ferb:
@@ -33,7 +34,7 @@ class Ferb:
         self._continuous_speed = 1
         # gps
         self.gps = GPS()
-        self.gps_history_size = 5  # Number of readings to average
+        self.gps_history_size = 3  # Number of readings to average
         self.gps_position_history = deque(maxlen=self.gps_history_size)
         # brujula
         self.brujula = Brujula(
@@ -423,9 +424,9 @@ class Ferb:
                 return None
         else:
             # Clear history if no valid fix to avoid averaging stale data
-            if len(self.gps_position_history) > 0:
-                print("GPS: Sin fix válido, limpiando historial de GPS.")
-                self.gps_position_history.clear()
+            # if len(self.gps_position_history) > 0:
+            #     print("GPS: Sin fix válido, limpiando historial de GPS.")
+            #     self.gps_position_history.clear()
             return None
 
     def get_current_heading(self):
@@ -472,6 +473,7 @@ class Ferb:
                     sleep(1)
                     continue
                 lat, lon = pos
+                self.gps_position_history.clear()
                 dist = self.haversine(lat, lon, target_lat, target_lon)
                 print(f"Punto {idx+1}/{len(self.ruta)}: Distancia al objetivo: {dist:.2f} m")
                 if dist < threshold:
