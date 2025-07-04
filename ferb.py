@@ -31,17 +31,23 @@ class Ferb:
         self._continuous_move_running = False
         self._continuous_direction = None
         self._continuous_speed = 1
+        # gps
         self.gps = GPS()
+        self.gps_history_size = 5  # Number of readings to average
+        self.gps_position_history = deque(maxlen=self.gps_history_size)
+        # brujula
         self.brujula = Brujula(
             i2c_bus=4,
             calibration=Brujula.UCAB_CALIBRATION,
             declination=Brujula.UCAB_DECLINATION,
         )
+        # navegacion
         self.obstaculos_thread_running = False  # Para controlar el hilo de obstáculos
         self.obstaculos_thread = None
+        self.ruta = []
+        # gestos
         self.gestos_thread_running = False  # Para controlar el hilo de gestos
         self.gestos_thread = None
-        self.ruta = []
 
     def _dog_handler(self):
         """
@@ -391,21 +397,36 @@ class Ferb:
 
     def get_current_position(self):
         """
-        Lee la posición actual del GPS (lat, lon). Devuelve None si no hay fix.
+        Lee la posición actual del GPS (lat, lon) y aplica promediado para mitigar el drift.
+        Devuelve None si no hay fix válido o si no hay suficientes datos para promediar.
         """
-        data = self.gps.read_data()
-        lat = None
-        lon = None
-        if data:
-            if isinstance(data, dict):
-                lat = data.get("lat") or data.get("latitude")
-                lon = data.get("lon") or data.get("longitude")
+        raw_data = self.gps.read_data()
+        
+        if isinstance(raw_data, dict) and raw_data.get("lat", None) is not None and raw_data.get("lon", None) is not None:
+            current_lat = float(raw_data["lat"])
+            current_lon = float(raw_data["lon"])
+            
+            # Add current valid reading to history
+            self.gps_position_history.append((current_lat, current_lon))
+            
+            # Only average if we have enough readings
+            if len(self.gps_position_history) == self.gps_history_size:
+                avg_lat = sum(p[0] for p in self.gps_position_history) / self.gps_history_size
+                avg_lon = sum(p[1] for p in self.gps_position_history) / self.gps_history_size
+                return avg_lat, avg_lon
             else:
-                lat = getattr(data, "lat", None) or getattr(data, "latitude", None)
-                lon = getattr(data, "lon", None) or getattr(data, "longitude", None)
-        if lat is not None and lon is not None:
-            return float(lat), float(lon)
-        return None
+                # Not enough data yet, return the latest valid reading or wait
+                # For this implementation, we'll return None until buffer is full.
+                # You could also return the raw_data here if you want faster updates,
+                # but with less smoothing.
+                print(f"GPS: Acumulando datos ({len(self.gps_position_history)}/{self.gps_history_size})...")
+                return None
+        else:
+            # Clear history if no valid fix to avoid averaging stale data
+            if len(self.gps_position_history) > 0:
+                print("GPS: Sin fix válido, limpiando historial de GPS.")
+                self.gps_position_history.clear()
+            return None
 
     def get_current_heading(self):
         """
@@ -420,19 +441,20 @@ class Ferb:
         while True:
             current_heading = self.get_current_heading()
             if current_heading is None:
+                sleep(0.1)
                 continue
             diff = (target_heading - current_heading + 360) % 360
             if diff < tolerance or diff > 360 - tolerance:
                 self.robot.stop()
                 break
             elif diff < 180:
-                self.robot.right(speed=1)
+                self.robot.right(speed=0.5)
             else:
-                self.robot.left(speed=1)
+                self.robot.left(speed=0.5)
             sleep(0.1)
         self.robot.stop()
 
-    def navigate(self, threshold=1.0, avance_time=10):
+    def navigate(self, threshold=1.5, avance_time=5):
         """
         Navega a través de la ruta especificada (self.ruta).
         threshold: distancia en metros para considerar que llegó al punto.

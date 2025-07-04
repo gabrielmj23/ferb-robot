@@ -24,26 +24,35 @@ class GPS:
             print(f"Failed to connect to GPS: {e}")
 
     def read_data(self):
-        """
-        Read data from the GPS module and parse it.
-        """
         if not self.ser or not self.ser.is_open:
             print("GPS not connected.")
             return None
 
         try:
-            while True:
-                newdata = self.ser.readline().decode('utf-8').strip()
-                if newdata.startswith("$GNRMC"):
-                    newmsg = pynmea2.parse(newdata)
-                    lat = newmsg.latitude
-                    lng = newmsg.longitude
-                    if lat == 0.0 and lng == 0.0:
-                        return "El GPS no se ha posicionado. Muévase a un sitio más despejado."
-                    gps_data = f"Latitude: {lat:.6f}, Longitude: {lng:.6f}"
-                    return {"lat": lat, "lon": lng}
+            newdata = self.ser.readline().decode('utf-8').strip()
+            if newdata.startswith(("$GNRMC", "$GPRMC")): # BN220 can output GNRMC or GPRMC
+                msg = pynmea2.parse(newdata)
+                # Check for GPS fix indicator (e.g., A = valid, V = invalid)
+                # For RMC, the status character is at position 2 of the parsed message.
+                if hasattr(msg, 'status') and msg.status == 'A':
+                    lat = msg.latitude
+                    lng = msg.longitude
+                    if lat != 0.0 or lng != 0.0: # Check if coordinates are truly zero
+                        return {"lat": lat, "lon": lng}
+                    else:
+                        print("GPS: Coordenadas 0.0, 0.0 - Posiblemente sin fix válido.")
+                        return None # Return None for no valid fix
+                else:
+                    # print(f"GPS: RMC sin fix válido: {newdata}") # For debugging
+                    return None
+            # else:
+                # print(f"GPS: Ignorando mensaje: {newdata}") # For debugging other NMEA sentences
+            return None # Return None if not a GNRMC or invalid
         except (pynmea2.ParseError, UnicodeDecodeError) as e:
             print(f"Error parsing GPS data: {e}")
+            return None
+        except serial.SerialTimeoutException:
+            print("GPS: Timeout reading serial data.") # For debugging
             return None
 
     def close(self):
