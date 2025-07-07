@@ -34,7 +34,7 @@ class Ferb:
         self._continuous_speed = 1
         # gps
         self.gps = GPS()
-        self.gps_history_size = 5  # Number of readings to average
+        self.gps_history_size = 3  # Number of readings to average
         self.gps_position_history = deque(maxlen=self.gps_history_size)
         # brujula
         self.brujula = Brujula(

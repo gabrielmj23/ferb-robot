@@ -62,11 +62,19 @@ async def mode(mode_request: ModeRequest):
     robot.current_mode = mode_request.mode
     if mode_request.mode != "dog":
         if mode_request.mode == "gestos":
+            robot.stop_dog_thread()
+            robot.stop_obstaculos_thread()
             robot.start_gestos_thread()
+        elif mode_request.mode == "obstaculos":
+            robot.stop_gestos_thread()
+            robot.stop_dog_thread()
+            robot.start_obstaculos_thread()
         else:
+            robot.stop_obstaculos_thread()
             robot.stop_dog_thread()
             robot.stop_gestos_thread()
     else:
+        robot.stop_obstaculos_thread()
         robot.stop_gestos_thread()
         robot.start_dog_thread()
     return {"message": f"Changing mode to {mode_request.mode}"}
