@@ -1,4 +1,5 @@
 from gpiozero import Robot, Motor
+import time
 from time import sleep
 import cv2
 from picamera2 import Picamera2
@@ -10,6 +11,7 @@ from modo_obstaculos import modo_obstaculos
 from math import radians, sin, cos, sqrt, atan2, degrees
 from modo_gestos_control import modo_gestos_control
 from collections import deque
+from obstaculos import detectar_obstaculos
 
 
 class Ferb:
@@ -461,6 +463,10 @@ class Ferb:
         threshold: distancia en metros para considerar que llegó al punto.
         avance_time: tiempo en segundos para avanzar antes de volver a chequear.
         """
+        # Parámetros para la evasión de obstáculos
+        DISTANCIA_MIN_CM = 30
+        MIN_AREA = 2000
+
         if not self.ruta:
             raise ValueError("No hay ruta definida para navegar.")
         for idx, punto in enumerate(self.ruta):
@@ -484,8 +490,40 @@ class Ferb:
                 print(f"Rumbo objetivo: {bearing:.2f}°")
                 self.turn_to_heading(bearing)
                 print(f"Avanzando {avance_time} segundos...")
-                self.robot.forward(speed=1)
-                sleep(avance_time)
+                start_time = time.time()
+                # Bucle de avance con detección de obstáculos
+                while time.time() - start_time < avance_time:
+                    frame = self.camera.capture_array()
+                    _, cajas = detectar_obstaculos(frame, min_area=MIN_AREA)
+                    
+                    obstaculo_cerca = any(
+                        dist is not None and dist < DISTANCIA_MIN_CM for _, dist in cajas
+                    )
+
+                    if obstaculo_cerca:
+                        # Gira hasta que el camino esté libre o se agoten los intentos
+                        max_intentos_giro = 25  # Aprox. 5 seg de giro (25 * 0.2s)
+                        for intento in range(max_intentos_giro):
+                            self.robot.left(speed=0.6)
+                            sleep(0.2)
+                            
+                            frame_nuevo = self.camera.capture_array()
+                            if frame_nuevo is None: continue
+                            
+                            _, cajas_nuevas = detectar_obstaculos(frame_nuevo, min_area=MIN_AREA)
+                            if not any(d is not None and d < DISTANCIA_MIN_CM for _, d in cajas_nuevas):
+                                self.robot.stop()
+                                print("✅ Camino despejado. Reanudando avance.")
+                                break # Sale del bucle de giro
+                        else:
+                            # Este 'else' se ejecuta si el 'for' termina sin 'break'
+                            self.robot.stop()
+                            print("⚠️ No se encontró un camino libre. Forzando recalculo de GPS.")
+                            # Rompe el bucle de avance_time para forzar un recalculo
+                            break 
+                    else:
+                        self.robot.forward(speed=1)
+                        sleep(0.2)
                 self.robot.stop()
                 print("Reevaluando posición...")
         print("Ruta completada.")
